@@ -2,96 +2,147 @@
 <html lang="zh">
 <head>
 <meta charset="UTF-8">
-<title>管理后台</title>
+<title>安全控制台</title>
 
 <style>
 
 body{
 margin:0;
 font-family:system-ui;
-background:#0b1220;
-color:white;
-display:flex;
+background:#050b18;
+color:#e5e7eb;
+overflow:hidden;
 }
 
-/* 左侧控制栏 */
-.panel{
-width:300px;
-padding:16px;
-border-right:1px solid #222;
-background:#0f172a;
+/* 🌌 背景 */
+.bg{
+position:fixed;
+inset:0;
+background:
+radial-gradient(circle at 20% 20%, #1d4ed8 0%, transparent 40%),
+radial-gradient(circle at 80% 60%, #7c3aed 0%, transparent 40%),
+#050b18;
+}
+
+/* 🔐 登录层 */
+#loginBox{
+position:fixed;
+inset:0;
+display:flex;
+justify-content:center;
+align-items:center;
+background:rgba(0,0,0,0.6);
+backdrop-filter: blur(12px);
+z-index:10;
+}
+
+/* 登录卡 */
+.loginCard{
+width:340px;
+padding:26px;
+background:rgba(15,23,42,0.75);
+backdrop-filter: blur(20px);
+border:1px solid rgba(255,255,255,0.1);
+border-radius:14px;
+box-shadow:0 20px 80px rgba(0,0,0,0.6);
 }
 
 h3{
-margin-top:0;
+margin:0 0 10px 0;
 color:#7dd3fc;
+text-align:center;
+letter-spacing:1px;
 }
-
-/* 主区域 */
-.main{
-flex:1;
-padding:16px;
-overflow:auto;
-}
-
-/* 日志 */
-.item{
-padding:10px;
-border-bottom:1px solid #1f2937;
-font-size:13px;
-}
-
-.low{ color:#22c55e; }
-.mid{ color:#f59e0b; }
-.high{ color:#ef4444; }
-.blocked{ color:red; font-weight:bold; }
 
 /* 输入 */
 input{
 width:100%;
-padding:8px;
-margin:6px 0;
+padding:10px;
+margin-top:10px;
 border:none;
-border-radius:6px;
-background:#111827;
+border-radius:10px;
+background:#0f172a;
 color:white;
+outline:none;
 }
 
 /* 按钮 */
 button{
 width:100%;
 padding:10px;
-margin-top:8px;
+margin-top:12px;
 border:none;
-border-radius:8px;
-background:#38bdf8;
+border-radius:10px;
+background:linear-gradient(90deg,#38bdf8,#6366f1);
 font-weight:bold;
 cursor:pointer;
+transition:0.2s;
 }
 
 button:hover{
-background:#0ea5e9;
+transform:translateY(-1px);
+box-shadow:0 10px 30px rgba(56,189,248,0.25);
 }
 
-/* 登录层 */
-#loginBox{
-position:fixed;
-top:0;left:0;right:0;bottom:0;
-background:rgba(0,0,0,0.85);
+/* 🛰 主体 */
+#app{
+display:none;
+height:100vh;
+}
+
+/* 左侧 */
+.panel{
+width:280px;
+padding:16px;
+background:rgba(15,23,42,0.8);
+backdrop-filter: blur(18px);
+border-right:1px solid rgba(255,255,255,0.06);
+}
+
+/* 布局 */
+.container{
 display:flex;
-justify-content:center;
-align-items:center;
+height:100vh;
 }
 
-.loginCard{
-width:300px;
-padding:20px;
-background:#111827;
+/* 主内容 */
+.main{
+flex:1;
+padding:16px;
+overflow:auto;
+}
+
+/* 标题 */
+.title{
+font-size:14px;
+opacity:0.8;
+margin-bottom:12px;
+}
+
+/* 日志卡片 */
+.item{
+padding:12px;
+margin-bottom:10px;
 border-radius:12px;
+background:rgba(255,255,255,0.03);
+border:1px solid rgba(255,255,255,0.05);
+transition:0.2s;
 }
 
-.center{
-text-align:center;
+.item:hover{
+background:rgba(255,255,255,0.06);
+transform:translateX(3px);
+}
+
+/* 风险 */
+.low{ border-left:3px solid #22c55e; }
+.mid{ border-left:3px solid #f59e0b; }
+.high{ border-left:3px solid #ef4444; }
+
+.meta{
+font-size:12px;
+opacity:0.7;
+margin-top:4px;
 }
 
 </style>
@@ -100,63 +151,73 @@ text-align:center;
 
 <body>
 
-<!-- 🔐 登录层 -->
+<div class="bg"></div>
+
+<!-- 🔐 登录 -->
 <div id="loginBox">
 <div class="loginCard">
-<h3 class="center">🔐 管理员登录</h3>
+<h3>🛡 管理员登录</h3>
 
-<input id="pwd" type="password" placeholder="请输入密码"/>
-<button onclick="login()">登录</button>
+<input id="pwd" type="password" placeholder="请输入管理员密码"/>
+<button onclick="login()">进入控制台</button>
 
-<p style="font-size:12px;color:#9ca3af;text-align:center;">
+<p style="text-align:center;font-size:12px;color:#94a3b8;margin-top:10px;">
 仅授权人员可访问
 </p>
+
 </div>
 </div>
+
+<!-- 🛰 控制台 -->
+<div id="app">
+<div class="container">
 
 <!-- 左侧 -->
 <div class="panel">
-<h3>🚨 黑名单控制</h3>
 
-<input id="ip" placeholder="IP地址"/>
+<h3 style="color:#7dd3fc;margin-bottom:10px;">🚨 控制面板</h3>
+
+<input id="ip" placeholder="IP 地址"/>
 <input id="reason" placeholder="封禁原因"/>
 
-<button onclick="blockIP()">➕ 添加黑名单</button>
+<button onclick="blockIP()">加入黑名单</button>
 
-<hr style="border-color:#1f2937;margin:16px 0"/>
+<button onclick="loadLogs()" style="margin-top:10px;background:#0ea5e9;">
+刷新访问日志
+</button>
 
-<button onclick="loadLogs()">🔄 刷新日志</button>
 </div>
 
-<!-- 主区域 -->
+<!-- 右侧 -->
 <div class="main">
-<h3>📊 访问日志（最近100条）</h3>
+
+<div class="title">📊 实时访问日志</div>
+
 <div id="logs">加载中...</div>
+
+</div>
+
+</div>
 </div>
 
 <script>
 
-/* ======================
-   🔐 简单登录系统
-====================== */
+const ADMIN_PASSWORD = "Abc?123789";
 
-const ADMIN_PASSWORD = "Abc?123789"; // ⚠️ 可修改
-
+/* 🔐 登录 */
 function login(){
-const val = document.getElementById("pwd").value;
+const v = document.getElementById("pwd").value;
 
-if(val === ADMIN_PASSWORD){
+if(v === ADMIN_PASSWORD){
 document.getElementById("loginBox").style.display = "none";
+document.getElementById("app").style.display = "block";
 loadLogs();
 }else{
-alert("密码错误！");
+alert("访问被拒绝");
 }
 }
 
-/* ======================
-   📊 日志加载
-====================== */
-
+/* 📊 日志 */
 async function loadLogs(){
 
 try{
@@ -164,17 +225,17 @@ try{
 const res = await fetch("/api/logs");
 const data = await res.json();
 
-if(!Array.isArray(data)){
-document.getElementById("logs").innerHTML = "暂无数据";
+if(!data || data.length === 0){
+document.getElementById("logs").innerHTML =
+"<div style='opacity:0.6'>暂无数据</div>";
 return;
 }
 
 document.getElementById("logs").innerHTML =
 data.map(d => `
 <div class="item ${d.risk}">
-<div>🌐 ${d.ip}</div>
-<div>📍 ${d.country} / ${d.city}</div>
-<div>⚠️ 风险: ${d.risk}</div>
+<div>🌐 IP：${d.ip}</div>
+<div class="meta">📍 ${d.country} / ${d.city}</div>
 </div>
 `).join("");
 
@@ -185,19 +246,13 @@ document.getElementById("logs").innerHTML =
 
 }
 
-/* ======================
-   🚫 加入黑名单
-====================== */
-
+/* 🚫 黑名单 */
 async function blockIP(){
 
 const ip = document.getElementById("ip").value.trim();
 const reason = document.getElementById("reason").value.trim();
 
-if(!ip){
-alert("请输入IP");
-return;
-}
+if(!ip) return alert("请输入IP地址");
 
 await fetch("/api/blacklist",{
 method:"POST",
