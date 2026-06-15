@@ -4,65 +4,76 @@
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
 
-<title>IP 查询地图版</title>
+<title>IP Intelligence V3</title>
 
-<!-- Leaflet -->
 <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css"/>
-
 <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
 
 <style>
 
 body {
 margin: 0;
-font-family: system-ui;
-background: #0f172a;
-color: white;
 display: flex;
 height: 100vh;
+font-family: system-ui;
+background: #050b18;
+color: white;
 }
 
-/* 左侧信息面板 */
+/* 🌙 夜光地图风格 */
+#map {
+flex: 1;
+filter: brightness(0.8) contrast(1.2) saturate(1.3);
+}
+
+/* 左侧面板 */
 .panel {
-width: 360px;
-padding: 20px;
-background: rgba(255,255,255,0.06);
-backdrop-filter: blur(14px);
+width: 380px;
+padding: 18px;
+background: rgba(255,255,255,0.05);
+backdrop-filter: blur(16px);
 border-right: 1px solid rgba(255,255,255,0.1);
 }
 
+/* 标题 */
 .title {
 font-size: 18px;
-margin-bottom: 12px;
+margin-bottom: 10px;
+color: #7dd3fc;
 }
 
+/* 信息项 */
 .item {
-margin: 10px 0;
+margin: 8px 0;
 font-size: 14px;
 }
 
 .label { opacity: 0.6; }
 .value { color: #38bdf8; }
 
-/* 地图 */
-#map {
-flex: 1;
-}
+/* 风险标签 */
+.risk-low { color: #22c55e; }
+.risk-medium { color: #f59e0b; }
+.risk-high { color: #ef4444; }
 
-.button {
-margin-top: 12px;
+/* 按钮 */
+button {
 width: 100%;
+margin-top: 12px;
 padding: 10px;
 border: none;
 border-radius: 10px;
 background: #38bdf8;
-color: black;
 font-weight: bold;
 cursor: pointer;
 }
 
-.button:hover {
-background: #0ea5e9;
+button:hover { background: #0ea5e9; }
+
+/* 国家旗帜 */
+.flag {
+font-size: 22px;
+margin-right: 6px;
 }
 
 </style>
@@ -72,11 +83,11 @@ background: #0ea5e9;
 <body>
 
 <div class="panel">
-<div class="title">🌍 IP + 地图定位</div>
+<div class="title">🌍 IP Intelligence V3</div>
 
 <div id="info">加载中...</div>
 
-<button class="button" onclick="load()">刷新</button>
+<button onclick="load()">刷新</button>
 </div>
 
 <div id="map"></div>
@@ -86,23 +97,43 @@ background: #0ea5e9;
 let map;
 let marker;
 
+/* 🌙 夜光地图初始化 */
 function initMap(lat, lon) {
 
-// 初始化地图
-map = L.map('map').setView([lat, lon], 10);
+map = L.map('map', {
+zoomControl: true
+}).setView([lat, lon], 9);
 
-// 地图层
-L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
 attribution: '© OpenStreetMap'
 }).addTo(map);
 
-// 标记
 marker = L.marker([lat, lon]).addTo(map);
-
-marker.bindPopup("📍 你的 IP 位置").openPopup();
-
+marker.bindPopup("📍 IP Location").openPopup();
 }
 
+/* 🧠 风险颜色 */
+function riskClass(risk) {
+if (risk === "high") return "risk-high";
+if (risk === "medium") return "risk-medium";
+return "risk-low";
+}
+
+/* 🧭 国家旗帜（emoji 简化版） */
+function getFlag(country) {
+const flags = {
+US: "🇺🇸",
+CN: "🇨🇳",
+RU: "🇷🇺",
+JP: "🇯🇵",
+DE: "🇩🇪",
+GB: "🇬🇧",
+FR: "🇫🇷"
+};
+return flags[country] || "🌐";
+}
+
+/* 📡 加载数据 */
 async function load() {
 
 const res = await fetch("/api/ip");
@@ -110,21 +141,38 @@ const d = await res.json();
 
 /* UI */
 document.getElementById("info").innerHTML = `
-<div class="item"><span class="label">IP：</span><span class="value">${d.ip}</span></div>
-<div class="item"><span class="label">国家：</span><span class="value">${d.country}</span></div>
-<div class="item"><span class="label">城市：</span><span class="value">${d.city}</span></div>
-<div class="item"><span class="label">地区：</span><span class="value">${d.region}</span></div>
-<div class="item"><span class="label">时区：</span><span class="value">${d.timezone}</span></div>
-<div class="item"><span class="label">组织：</span><span class="value">${d.org}</span></div>
+<div class="item">
+<span class="flag">${getFlag(d.country)}</span>
+<span class="value">${d.country}</span>
+</div>
+
+<div class="item"><span class="label">IP：</span>
+<span class="value">${d.ip}</span></div>
+
+<div class="item"><span class="label">城市：</span>
+<span class="value">${d.city}</span></div>
+
+<div class="item"><span class="label">地区：</span>
+<span class="value">${d.region}</span></div>
+
+<div class="item"><span class="label">组织：</span>
+<span class="value">${d.org}</span></div>
+
+<div class="item">
+<span class="label">风险评分：</span>
+<span class="${riskClass(d.risk)}">
+${d.risk.toUpperCase()} (${d.score}/100)
+</span>
+</div>
 `;
 
-/* 地图初始化 */
+/* 地图 */
 if (!map) {
 initMap(d.lat, d.lon);
 } else {
-map.setView([d.lat, d.lon], 10);
+map.setView([d.lat, d.lon], 9);
 marker.setLatLng([d.lat, d.lon]);
-marker.setPopupContent(`📍 ${d.city}, ${d.country}`);
+marker.setPopupContent(`${d.city}, ${d.country}`);
 }
 
 }
