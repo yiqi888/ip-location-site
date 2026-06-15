@@ -1,63 +1,44 @@
 <!DOCTYPE html>
-<html lang="zh-CN">
+<html lang="zh">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width">
+<title>IP 情报中心</title>
 
-<title>IP 定位查询</title>
+<link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css"/>
 
 <style>
 
 body{
 margin:0;
-font-family:-apple-system;
-
-background:
-linear-gradient(
-135deg,
-#0f172a,
-#111827
-);
-
+font-family:system-ui;
+background:#0b1220;
 color:white;
+}
 
-display:flex;
-
+.container{
+display:grid;
+grid-template-columns:1fr 1fr;
 height:100vh;
+}
 
-align-items:center;
+.panel{
+padding:20px;
+background:rgba(255,255,255,0.05);
+backdrop-filter:blur(15px);
+}
 
-justify-content:center;
-
+#map{
+height:100vh;
 }
 
 .card{
-
-width:500px;
-
-padding:40px;
-
-border-radius:20px;
-
-background:
-rgba(255,255,255,.06);
-
-backdrop-filter:blur(20px);
-
+padding:15px;
+margin:10px 0;
+border-radius:12px;
+background:rgba(255,255,255,0.06);
 }
 
-h1{
-margin-top:0;
-}
-
-.item{
-margin:14px 0;
-font-size:18px;
-}
-
-.value{
-color:#60a5fa;
-}
+.value{ color:#4cc9f0; }
 
 </style>
 
@@ -65,69 +46,63 @@ color:#60a5fa;
 
 <body>
 
-<div class="card">
+<div class="container">
 
-<h1>🌍 IP 定位显示</h1>
+<div class="panel">
 
-<div id="loading">
-读取中…
+<h2>🌐 IP 情报中心</h2>
+
+<div id="info" class="card">加载中...</div>
+
+<div id="stats" class="card"></div>
+
 </div>
 
-<div id="info"></div>
+<div id="map"></div>
 
 </div>
+
+<script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
 
 <script>
 
+let map = L.map('map').setView([20,0], 2);
+
+L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+attribution: 'OSM'
+}).addTo(map);
+
 async function load(){
 
-const r=
-await fetch("/api/ip");
+const r = await fetch("/api/ip");
+const d = await r.json();
 
-const d=
-await r.json();
+document.getElementById("info").innerHTML = `
+<b>IP:</b> <span class="value">${d.ip}</span><br>
+<b>国家:</b> ${d.country}<br>
+<b>城市:</b> ${d.city}<br>
+<b>地区:</b> ${d.region}<br>
+<b>ASN:</b> ${d.asn || "未知"}
+`;
 
-document
-.getElementById(
-"loading"
-).style.display=
-"none";
+// 地图定位
+if(d.lat && d.lon){
+map.setView([d.lat, d.lon], 10);
 
-document
-.getElementById(
-"info"
-).innerHTML=`
+L.marker([d.lat, d.lon])
+.addTo(map)
+.bindPopup("📍 你的位置")
+.openPopup();
+}
 
-<div class=item>
-IP：
-<span class=value>${d.ip}</span>
-</div>
+// 统计
+const s = await fetch("/api/stats");
+const st = await s.json();
 
-<div class=item>
-国家：
-<span class=value>${d.country}</span>
-</div>
-
-<div class=item>
-城市：
-<span class=value>${d.city}</span>
-</div>
-
-<div class=item>
-地区：
-<span class=value>${d.region}</span>
-</div>
-
-<div class=item>
-时区：
-<span class=value>${d.timezone}</span>
-</div>
-
-<div class=item>
-ISP：
-<span class=value>${d.asn}</span>
-</div>
-
+document.getElementById("stats").innerHTML = `
+<b>📊 访问统计</b><br>
+总访问：${st.total}<br>
+今日访问：${st.today}
 `;
 
 }
