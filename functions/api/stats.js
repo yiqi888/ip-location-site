@@ -1,29 +1,62 @@
 export async function onRequest(context) {
 
-const db = context.env.DB;
+const { request, env } = context;
+const cf = request.cf;
 
-// 总访问
-const total = await db.prepare(
-  "SELECT COUNT(*) as c FROM visits"
-).first();
+const ip = request.headers.get("CF-Connecting-IP");
 
-// 今日访问
-const today = await db.prepare(
-  `SELECT COUNT(*) as c FROM visits
-   WHERE date(created_at) = date('now')`
-).first();
+const data = {
+  ip,
+  country: cf?.country,
+  city: cf?.city,
+  lat: cf?.latitude,
+  lon: cf?.longitude,
+  time: new Date().toISOString()
+};
 
-// 最近10条
-const recent = await db.prepare(
-  `SELECT * FROM visits
-   ORDER BY id DESC
-   LIMIT 10`
-).all();
+// 写入数据库
+await env.DB.prepare(
+`INSERT INTO visits (ip, country, city, region, lat, lon, ua)
+ VALUES (?, ?, ?, ?, ?, ?, ?)`
+).bind(
+data.ip,
+cf?.country,
+cf?.city,
+cf?.region,
+cf?.latitude,
+cf?.longitude,
+request.headers.get("User-Agent")
+).run();
 
-return Response.json({
-  total: total.c,
-  today: today.c,
-  recent: recent.results
-});
+// SSE响应
+const encoder = new TextEncoder();
+
+return new Response(
+new ReadableStream({
+start(controller){
+
+controller.enqueue(
+encoder.encode(
+`data: ${JSON.stringify(data)}\n\n`
+)
+);
+
+setInterval(() => {
+controller.enqueue(
+encoder.encode(
+`event: ping\ndata: {}\n\n`
+);
+}, 15000);
+
+}
+}),
+{
+headers: {
+"Content-Type": "text/event-stream",
+"Cache-Control": "no-cache",
+Connection: "keep-alive"
+}
+}
+);
 
 }
