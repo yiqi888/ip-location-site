@@ -4,7 +4,7 @@
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
 
-<title>IP Intelligence V3.1</title>
+<title>IP Intelligence V3.2</title>
 
 <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css"/>
 <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
@@ -18,7 +18,7 @@ overflow: hidden;
 font-family: system-ui;
 }
 
-/* 🌙 全屏夜光地图 */
+/* 🌙 地图 */
 #map {
 position: absolute;
 top: 0;
@@ -28,7 +28,7 @@ bottom: 0;
 filter: brightness(0.75) contrast(1.2) saturate(1.3);
 }
 
-/* 🎯 中央信息卡 */
+/* 卡片 */
 .card {
 position: absolute;
 top: 50%;
@@ -61,11 +61,9 @@ display: flex;
 justify-content: space-between;
 }
 
-.label {
-opacity: 0.6;
-}
+.label { opacity: 0.6; }
 
-/* 🎨 风险颜色 */
+/* 风险 */
 .low { color: #22c55e; }
 .medium { color: #f59e0b; }
 .high { color: #ef4444; }
@@ -82,18 +80,11 @@ font-weight: bold;
 cursor: pointer;
 }
 
-button:hover {
-background: #0ea5e9;
-}
+button:hover { background: #0ea5e9; }
 
-/* 🌍 旗帜 */
 .flag {
 font-size: 20px;
 margin-right: 6px;
-}
-
-.center {
-text-align: center;
 }
 
 </style>
@@ -105,19 +96,17 @@ text-align: center;
 <div id="map"></div>
 
 <div class="card">
-
 <div class="title">🌍 IP Intelligence / IP 信息分析</div>
 
 <div id="info" class="center">Loading...</div>
 
 <button onclick="load()">Refresh / 刷新</button>
-
 </div>
 
 <script>
 
-let map;
-let marker;
+let map = null;
+let marker = null;
 
 /* 🧭 国家旗帜 */
 function getFlag(c) {
@@ -129,17 +118,21 @@ FR:"🇫🇷"
 return f[c] || "🌐";
 }
 
-/* 🧠 风险翻译 */
-function riskText(r) {
-if (r === "high") return { zh:"高风险", en:"HIGH" };
-if (r === "medium") return { zh:"中风险", en:"MEDIUM" };
-return { zh:"安全", en:"LOW" };
+/* 🧠 风险标准化（关键优化） */
+function normalizeRisk(r) {
+if (!r) return "low";
+return r.toLowerCase();
 }
 
-/* 🌙 地图初始化 */
+/* 🌙 安全地图初始化 */
 function initMap(lat, lon) {
 
-map = L.map('map').setView([lat, lon], 9);
+if (!lat || !lon) {
+lat = 20;
+lon = 0;
+}
+
+map = L.map('map').setView([lat, lon], 3);
 
 L.tileLayer(
 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png',
@@ -150,58 +143,69 @@ marker = L.marker([lat, lon]).addTo(map);
 marker.bindPopup("📍 IP Location / 位置").openPopup();
 }
 
-/* 📡 加载数据 */
+/* 📡 主加载函数 */
 async function load() {
+
+try {
 
 const res = await fetch("/api/ip");
 const d = await res.json();
 
-const risk = riskText(d.risk);
+const risk = normalizeRisk(d.risk);
 
-/* UI */
+/* UI（优化：减少 innerHTML 复杂度风险） */
 document.getElementById("info").innerHTML = `
-
 <div class="row">
 <span>🌐 IP</span>
-<span>${d.ip}</span>
+<span>${d.ip || "-"}</span>
 </div>
 
 <div class="row">
 <span>🏳️ Country / 国家</span>
-<span>${getFlag(d.country)} ${d.country}</span>
+<span>${getFlag(d.country)} ${d.country || "-"}</span>
 </div>
 
 <div class="row">
 <span>🏙 City / 城市</span>
-<span>${d.city}</span>
+<span>${d.city || "-"}</span>
 </div>
 
 <div class="row">
 <span>📍 Region / 地区</span>
-<span>${d.region}</span>
+<span>${d.region || "-"}</span>
 </div>
 
 <div class="row">
 <span>🏢 Org / 运营商</span>
-<span>${d.org}</span>
+<span>${d.org || "-"}</span>
 </div>
 
 <div class="row">
 <span>🧠 Risk / 风险</span>
-<span class="${d.risk}">
-${risk.en} / ${risk.zh}
+<span class="${risk}">
+${risk.toUpperCase()}
 </span>
 </div>
-
 `;
 
-/* 地图 */
+/* 地图更新优化 */
+const lat = d.lat || 20;
+const lon = d.lon || 0;
+
 if (!map) {
-initMap(d.lat, d.lon);
+initMap(lat, lon);
 } else {
-map.setView([d.lat, d.lon], 9);
-marker.setLatLng([d.lat, d.lon]);
-marker.setPopupContent(`${d.city}, ${d.country}`);
+map.setView([lat, lon], 5);
+if (marker) {
+marker.setLatLng([lat, lon]);
+marker.setPopupContent(`${d.city || ""}, ${d.country || ""}`);
+}
+}
+
+} catch (e) {
+document.getElementById("info").innerHTML =
+"<div style='color:red'>API ERROR</div>";
+console.error(e);
 }
 
 }
