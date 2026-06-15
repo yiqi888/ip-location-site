@@ -1,177 +1,110 @@
 <!DOCTYPE html>
-<html>
+<html lang="zh">
 <head>
-<meta charset="UTF-8">
-<title>GLOBAL CYBER MONITOR V5</title>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
 
-<script src="https://unpkg.com/three@0.155.0/build/three.min.js"></script>
-<script src="https://unpkg.com/globe.gl"></script>
+<title>IP 查询工具</title>
 
 <style>
-
-body{
-margin:0;
-overflow:hidden;
-background:black;
-font-family:monospace;
-color:#00ffcc;
+body {
+margin: 0;
+font-family: system-ui, -apple-system;
+background: radial-gradient(circle at top, #1e293b, #0f172a);
+color: white;
+display: flex;
+justify-content: center;
+align-items: center;
+height: 100vh;
 }
 
-#globe{
-position:absolute;
-top:0;
-left:0;
-right:0;
-bottom:0;
+.card {
+width: 420px;
+padding: 28px;
+border-radius: 16px;
+background: rgba(255,255,255,0.06);
+backdrop-filter: blur(16px);
+box-shadow: 0 20px 60px rgba(0,0,0,0.5);
+border: 1px solid rgba(255,255,255,0.1);
 }
 
-.hud{
-position:absolute;
-top:0;
-left:0;
-width:380px;
-height:100vh;
-background:rgba(0,0,0,0.7);
-padding:14px;
-overflow:auto;
-border-right:1px solid #00ffcc33;
+h1 {
+margin: 0 0 18px 0;
+font-size: 20px;
 }
 
-.title{
-font-size:16px;
-margin-bottom:10px;
+.item {
+margin: 10px 0;
+font-size: 14px;
+opacity: 0.9;
 }
 
-.log{
-font-size:11px;
-margin:5px 0;
-opacity:0.85;
+.label {
+opacity: 0.6;
 }
 
-.stat{
-margin:10px 0;
+.value {
+color: #38bdf8;
+word-break: break-all;
 }
 
-.glow{
-color:#00ffcc;
-text-shadow:0 0 8px #00ffcc;
+.button {
+margin-top: 16px;
+padding: 10px;
+width: 100%;
+border: none;
+border-radius: 10px;
+background: #38bdf8;
+color: black;
+font-weight: bold;
+cursor: pointer;
 }
 
+.button:hover {
+background: #0ea5e9;
+}
 </style>
 
 </head>
 
 <body>
 
-<div id="globe"></div>
+<div class="card">
+<h1>🌍 IP 信息查询</h1>
 
-<div class="hud">
+<div id="content">加载中...</div>
 
-<div class="title glow">🛰 GLOBAL CYBER MONITOR V5</div>
-
-<div id="stats" class="stat">INIT...</div>
-
-<div id="logs"></div>
-
+<button class="button" onclick="load()">刷新</button>
 </div>
 
 <script>
 
-const globe = Globe()
-(document.getElementById('globe'))
-
-.globeImageUrl('https://unpkg.com/three-globe/example/img/earth-night.jpg')
-.bumpImageUrl('https://unpkg.com/three-globe/example/img/earth-topology.png')
-.backgroundImageUrl('https://unpkg.com/three-globe/example/img/night-sky.png')
-.pointOfView({ lat: 20, lng: 0, altitude: 2.5 });
-
-let points = [];
-let seen = new Map();
-
-// 🌍 更新地球点
-function render(){
-
-globe
-.pointsData(points)
-.pointLat(d => d.lat)
-.pointLng(d => d.lon)
-.pointColor(d => {
-
-if(d.count > 5) return "#ff3b3b";
-if(d.count > 2) return "#ffaa00";
-return "#00ffcc";
-
-})
-.pointRadius(d => 0.3 + d.count * 0.05)
-.pointAltitude(0.02);
-
-}
-
-// 🧠 合并点（避免爆炸）
-function addPoint(d){
-
-const key = d.country + d.city;
-
-if(seen.has(key)){
-seen.get(key).count++;
-}else{
-seen.set(key,{
-lat:d.lat,
-lon:d.lon,
-country:d.country,
-city:d.city,
-ip:d.ip,
-count:1
-});
-}
-
-points = Array.from(seen.values());
-
-render();
-}
-
-// 🧾 HUD日志
-function addLog(d){
-
-const el = document.createElement("div");
-el.className="log";
-el.innerText = `${d.ip} | ${d.country} | ${d.city}`;
-
-document.getElementById("logs").prepend(el);
-
-// 限制
-if(document.getElementById("logs").children.length > 60){
-document.getElementById("logs").lastChild.remove();
-}
-
-}
-
-// 📡 轮询系统（核心）
-async function poll(){
-
-try{
-
+async function load() {
 const res = await fetch("/api/ip");
 const d = await res.json();
 
-if(d.lat && d.lon){
-addPoint(d);
+document.getElementById("content").innerHTML = `
+<div class="item"><span class="label">IP：</span>
+<span class="value">${d.ip}</span></div>
+
+<div class="item"><span class="label">国家：</span>
+<span class="value">${d.country}</span></div>
+
+<div class="item"><span class="label">城市：</span>
+<span class="value">${d.city}</span></div>
+
+<div class="item"><span class="label">地区：</span>
+<span class="value">${d.region}</span></div>
+
+<div class="item"><span class="label">时区：</span>
+<span class="value">${d.timezone}</span></div>
+
+<div class="item"><span class="label">组织：</span>
+<span class="value">${d.org}</span></div>
+`;
 }
 
-addLog(d);
-
-document.getElementById("stats").innerHTML =
-`POINTS: ${points.length} | TIME: ${new Date().toLocaleTimeString()}`;
-
-}catch(e){
-console.log("poll error",e);
-}
-
-}
-
-// 🚀 启动
-setInterval(poll, 2000);
-poll();
+load();
 
 </script>
 
