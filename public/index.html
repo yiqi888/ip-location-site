@@ -2,61 +2,64 @@
 <html>
 <head>
 <meta charset="UTF-8">
-<title>GLOBAL IP MONITOR</title>
+<title>CYBER COMMAND CENTER</title>
 
-<link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css"/>
+<script src="https://unpkg.com/three"></script>
+<script src="https://unpkg.com/globe.gl"></script>
 
 <style>
 
 body{
 margin:0;
-background:black;
-color:#00ff9f;
-font-family:monospace;
 overflow:hidden;
+background:black;
+font-family:monospace;
+color:#00ffcc;
 }
 
-#map{
-height:100vh;
-filter:contrast(1.2) brightness(0.8);
+#globe{
+position:absolute;
+top:0;
+left:0;
+right:0;
+bottom:0;
 }
 
 .hud{
 position:absolute;
 top:0;
 left:0;
-width:400px;
+width:360px;
 height:100vh;
-background:rgba(0,0,0,0.7);
-padding:20px;
+background:rgba(0,0,0,0.65);
+padding:16px;
+border-right:1px solid #00ffcc33;
 overflow:auto;
-border-right:1px solid #00ff9f33;
-}
-
-.log{
-font-size:12px;
-margin:5px 0;
-opacity:0.9;
 }
 
 .title{
-color:#00ff9f;
 font-size:18px;
 margin-bottom:10px;
 }
 
-.scanline{
-position:fixed;
-width:100%;
-height:2px;
-background:#00ff9f;
-opacity:0.1;
-animation:scan 4s linear infinite;
+.log{
+font-size:11px;
+margin:6px 0;
+opacity:0.85;
 }
 
-@keyframes scan{
-0%{top:0}
-100%{top:100%}
+.stat{
+margin:10px 0;
+color:#00ffcc;
+}
+
+.alert{
+color:#ff3b3b;
+animation:blink 1s infinite;
+}
+
+@keyframes blink{
+50%{opacity:0.2}
 }
 
 </style>
@@ -65,68 +68,117 @@ animation:scan 4s linear infinite;
 
 <body>
 
-<div class="scanline"></div>
+<div id="globe"></div>
 
 <div class="hud">
 
-<div class="title">🛰 GLOBAL ACCESS MONITOR</div>
+<div class="title">🛰 CYBER COMMAND CENTER</div>
 
-<div id="count">ONLINE: 0</div>
+<div id="stats" class="stat">INIT...</div>
 
-<div id="log"></div>
+<div id="logs"></div>
 
 </div>
 
-<div id="map"></div>
-
-<script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
-
 <script>
 
-const map = L.map('map').setView([20,0], 2);
+const globe = Globe()
+(document.getElementById('globe'))
 
-L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{
-attribution:''
-}).addTo(map);
+.globeImageUrl('https://unpkg.com/three-globe/example/img/earth-night.jpg')
 
-let count = 0;
+.bumpImageUrl('https://unpkg.com/three-globe/example/img/earth-topology.png')
 
-function addPulse(lat, lon){
+.backgroundImageUrl('https://unpkg.com/three-globe/example/img/night-sky.png')
 
-const circle = L.circle([lat,lon],{
-radius:50000,
-color:"#00ff9f",
-fillOpacity:0.3
-}).addTo(map);
+.pointOfView({ lat: 20, lng: 0, altitude: 2.5 });
 
-setTimeout(()=>map.removeLayer(circle),3000);
+let points = [];
+
+function updateGlobe(){
+
+globe
+.pointsData(points)
+.pointLat(d => d.lat)
+.pointLng(d => d.lng)
+.pointColor(d => {
+
+if(d.count > 5) return "#ff3b3b";
+if(d.count > 2) return "#ffaa00";
+return "#00ffcc";
+
+})
+.pointAltitude(0.02)
+.pointRadius(0.3);
 
 }
 
-const evt = new EventSource("/api/stream");
+async function fetchData(){
 
-evt.onmessage = (e)=>{
+const res = await fetch("/api/stream");
+const reader = res.body.getReader();
+const decoder = new TextDecoder();
 
-const d = JSON.parse(e.data);
+let buffer = "";
 
-count++;
-document.getElementById("count").innerText =
-"ONLINE: " + count;
+while(true){
 
+const {value, done} = await reader.read();
+if(done) break;
+
+buffer += decoder.decode(value);
+
+const parts = buffer.split("\n\n");
+
+buffer = parts.pop();
+
+for(const p of parts){
+
+if(p.includes("data:")){
+
+const json = p.replace("data:","").trim();
+
+const d = JSON.parse(json);
+
+// 合并点数据
+let found = points.find(x => x.lat === d.lat && x.lng === d.lon);
+
+if(found){
+found.count++;
+}else{
+points.push({
+lat: d.lat,
+lng: d.lon,
+count: 1
+});
+}
+
+updateGlobe();
+
+// HUD日志
 const log =
-`[${d.time}] ${d.ip} | ${d.country} | ${d.city}`;
+document.createElement("div");
 
-const div = document.createElement("div");
-div.className="log";
-div.innerText=log;
+log.className="log";
 
-document.getElementById("log").prepend(div);
+log.innerText =
+`${d.ip} | ${d.country} | ${d.city}`;
 
-if(d.lat && d.lon){
-addPulse(d.lat, d.lon);
+document.getElementById("logs").prepend(log);
+
+// stats
+document.getElementById("stats").innerHTML =
+`ACTIVE POINTS: ${points.length}`;
+
 }
 
-};
+}
+
+}
+
+}
+
+fetchData();
 
 </script>
 
