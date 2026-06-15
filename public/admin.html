@@ -2,15 +2,24 @@
 <html lang="zh">
 <head>
 <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+
 <title>🔒安全控制台</title>
 
 <style>
+
+/* 🌐 全局 */
+*{
+box-sizing:border-box;
+}
 
 body{
 margin:0;
 font-family:system-ui;
 background:#050b18;
 color:#e5e7eb;
+height:100vh;
+height:100dvh; /* 修复移动端 */
 overflow:hidden;
 }
 
@@ -34,24 +43,29 @@ align-items:center;
 background:rgba(0,0,0,0.6);
 backdrop-filter: blur(12px);
 z-index:10;
+padding:16px;
 }
 
 /* 登录卡 */
 .loginCard{
-width:340px;
-padding:26px;
+width:min(340px, 92vw);  /* 📱 自适应 */
+padding:22px;
+
 background:rgba(15,23,42,0.75);
 backdrop-filter: blur(20px);
+
 border:1px solid rgba(255,255,255,0.1);
 border-radius:14px;
 box-shadow:0 20px 80px rgba(0,0,0,0.6);
 }
 
+/* 标题 */
 h3{
 margin:0 0 10px 0;
 color:#7dd3fc;
 text-align:center;
 letter-spacing:1px;
+font-size:18px;
 }
 
 /* 输入 */
@@ -64,6 +78,7 @@ border-radius:10px;
 background:#0f172a;
 color:white;
 outline:none;
+font-size:14px;
 }
 
 /* 按钮 */
@@ -71,41 +86,46 @@ button{
 width:100%;
 padding:10px;
 margin-top:12px;
+
 border:none;
 border-radius:10px;
+
 background:linear-gradient(90deg,#38bdf8,#6366f1);
 font-weight:bold;
 cursor:pointer;
-transition:0.2s;
+
+font-size:14px;
 }
 
-button:hover{
-transform:translateY(-1px);
-box-shadow:0 10px 30px rgba(56,189,248,0.25);
+button:active{
+transform:scale(0.98);
 }
 
 /* 🛰 主体 */
 #app{
 display:none;
 height:100vh;
+height:100dvh;
+}
+
+/* 布局 */
+.container{
+display:flex;
+height:100%;
 }
 
 /* 左侧 */
 .panel{
 width:280px;
 padding:16px;
+
 background:rgba(15,23,42,0.8);
 backdrop-filter: blur(18px);
+
 border-right:1px solid rgba(255,255,255,0.06);
 }
 
-/* 布局 */
-.container{
-display:flex;
-height:100vh;
-}
-
-/* 主内容 */
+/* 右侧 */
 .main{
 flex:1;
 padding:16px;
@@ -119,19 +139,21 @@ opacity:0.8;
 margin-bottom:12px;
 }
 
-/* 日志卡片 */
+/* 日志 */
 .item{
 padding:12px;
 margin-bottom:10px;
+
 border-radius:12px;
 background:rgba(255,255,255,0.03);
 border:1px solid rgba(255,255,255,0.05);
+
 transition:0.2s;
 }
 
 .item:hover{
-background:rgba(255,255,255,0.06);
 transform:translateX(3px);
+background:rgba(255,255,255,0.06);
 }
 
 /* 风险 */
@@ -143,6 +165,46 @@ transform:translateX(3px);
 font-size:12px;
 opacity:0.7;
 margin-top:4px;
+}
+
+/* 📱 手机适配 */
+@media (max-width: 768px){
+
+.container{
+flex-direction:column;
+}
+
+/* 左侧变顶部 */
+.panel{
+width:100%;
+border-right:none;
+border-bottom:1px solid rgba(255,255,255,0.06);
+}
+
+/* 日志更紧凑 */
+.item{
+padding:10px;
+font-size:13px;
+}
+
+}
+
+/* 📱 小屏优化 */
+@media (max-width: 480px){
+
+.loginCard{
+padding:18px;
+border-radius:12px;
+}
+
+h3{
+font-size:16px;
+}
+
+.item{
+font-size:12px;
+}
+
 }
 
 </style>
@@ -172,23 +234,20 @@ margin-top:4px;
 <div id="app">
 <div class="container">
 
-<!-- 左侧 -->
 <div class="panel">
-
-<h3 style="color:#7dd3fc;margin-bottom:10px;">🚨 控制面板</h3>
+<h3 style="color:#7dd3fc;">🚨 控制面板</h3>
 
 <input id="ip" placeholder="IP 地址"/>
 <input id="reason" placeholder="封禁原因"/>
 
 <button onclick="blockIP()">加入黑名单</button>
 
-<button onclick="loadLogs()" style="margin-top:10px;background:#0ea5e9;">
-刷新访问日志
+<button onclick="loadLogs()" style="background:#0ea5e9;">
+刷新日志
 </button>
 
 </div>
 
-<!-- 右侧 -->
 <div class="main">
 
 <div class="title">📊 实时访问日志</div>
@@ -217,7 +276,7 @@ alert("访问被拒绝");
 }
 }
 
-/* 📊 日志 */
+/* 📊 logs */
 async function loadLogs(){
 
 try{
@@ -225,14 +284,8 @@ try{
 const res = await fetch("/api/logs");
 const data = await res.json();
 
-if(!data || data.length === 0){
 document.getElementById("logs").innerHTML =
-"<div style='opacity:0.6'>暂无数据</div>";
-return;
-}
-
-document.getElementById("logs").innerHTML =
-data.map(d => `
+(data || []).map(d => `
 <div class="item ${d.risk}">
 <div>🌐 IP：${d.ip}</div>
 <div class="meta">📍 ${d.country} / ${d.city}</div>
@@ -259,8 +312,6 @@ method:"POST",
 headers:{ "Content-Type":"application/json" },
 body: JSON.stringify({ ip, reason })
 });
-
-alert("已加入黑名单");
 
 loadLogs();
 }
