@@ -1,10 +1,11 @@
 <!DOCTYPE html>
-<html>
+<html lang="zh">
 <head>
 <meta charset="UTF-8">
-<title>Admin Panel</title>
+<title>管理后台</title>
 
 <style>
+
 body{
 margin:0;
 font-family:system-ui;
@@ -13,33 +14,84 @@ color:white;
 display:flex;
 }
 
+/* 左侧控制栏 */
 .panel{
-width:320px;
+width:300px;
 padding:16px;
 border-right:1px solid #222;
+background:#0f172a;
 }
 
+h3{
+margin-top:0;
+color:#7dd3fc;
+}
+
+/* 主区域 */
 .main{
 flex:1;
 padding:16px;
 overflow:auto;
 }
 
+/* 日志 */
 .item{
-padding:8px;
-border-bottom:1px solid #222;
+padding:10px;
+border-bottom:1px solid #1f2937;
 font-size:13px;
 }
 
-.bad{ color:#ef4444; }
-.mid{ color:#f59e0b; }
 .low{ color:#22c55e; }
+.mid{ color:#f59e0b; }
+.high{ color:#ef4444; }
 .blocked{ color:red; font-weight:bold; }
 
-button{
-margin-top:10px;
+/* 输入 */
+input{
 width:100%;
 padding:8px;
+margin:6px 0;
+border:none;
+border-radius:6px;
+background:#111827;
+color:white;
+}
+
+/* 按钮 */
+button{
+width:100%;
+padding:10px;
+margin-top:8px;
+border:none;
+border-radius:8px;
+background:#38bdf8;
+font-weight:bold;
+cursor:pointer;
+}
+
+button:hover{
+background:#0ea5e9;
+}
+
+/* 登录层 */
+#loginBox{
+position:fixed;
+top:0;left:0;right:0;bottom:0;
+background:rgba(0,0,0,0.85);
+display:flex;
+justify-content:center;
+align-items:center;
+}
+
+.loginCard{
+width:300px;
+padding:20px;
+background:#111827;
+border-radius:12px;
+}
+
+.center{
+text-align:center;
 }
 
 </style>
@@ -48,47 +100,115 @@ padding:8px;
 
 <body>
 
-<div class="panel">
-<h3>🚨 IP 黑名单</h3>
-<input id="ip" placeholder="IP"/>
-<input id="reason" placeholder="原因"/>
-<button onclick="block()">添加</button>
+<!-- 🔐 登录层 -->
+<div id="loginBox">
+<div class="loginCard">
+<h3 class="center">🔐 管理员登录</h3>
+
+<input id="pwd" type="password" placeholder="请输入密码"/>
+<button onclick="login()">登录</button>
+
+<p style="font-size:12px;color:#9ca3af;text-align:center;">
+仅授权人员可访问
+</p>
+</div>
 </div>
 
+<!-- 左侧 -->
+<div class="panel">
+<h3>🚨 黑名单控制</h3>
+
+<input id="ip" placeholder="IP地址"/>
+<input id="reason" placeholder="封禁原因"/>
+
+<button onclick="blockIP()">➕ 添加黑名单</button>
+
+<hr style="border-color:#1f2937;margin:16px 0"/>
+
+<button onclick="loadLogs()">🔄 刷新日志</button>
+</div>
+
+<!-- 主区域 -->
 <div class="main">
-<h3>📊 访问日志</h3>
-<div id="logs">loading...</div>
+<h3>📊 访问日志（最近100条）</h3>
+<div id="logs">加载中...</div>
 </div>
 
 <script>
 
+/* ======================
+   🔐 简单登录系统
+====================== */
+
+const ADMIN_PASSWORD = "Abc?123789"; // ⚠️ 可修改
+
+function login(){
+const val = document.getElementById("pwd").value;
+
+if(val === ADMIN_PASSWORD){
+document.getElementById("loginBox").style.display = "none";
+loadLogs();
+}else{
+alert("密码错误！");
+}
+}
+
+/* ======================
+   📊 日志加载
+====================== */
+
 async function loadLogs(){
+
+try{
+
 const res = await fetch("/api/logs");
 const data = await res.json();
+
+if(!Array.isArray(data)){
+document.getElementById("logs").innerHTML = "暂无数据";
+return;
+}
 
 document.getElementById("logs").innerHTML =
 data.map(d => `
 <div class="item ${d.risk}">
-${d.ip} | ${d.country} | ${d.city}
-<span class="${d.risk}">[${d.risk}]</span>
+<div>🌐 ${d.ip}</div>
+<div>📍 ${d.country} / ${d.city}</div>
+<div>⚠️ 风险: ${d.risk}</div>
 </div>
 `).join("");
+
+}catch(e){
+document.getElementById("logs").innerHTML =
+"<div style='color:red'>加载失败</div>";
 }
 
-async function block(){
+}
+
+/* ======================
+   🚫 加入黑名单
+====================== */
+
+async function blockIP(){
+
+const ip = document.getElementById("ip").value.trim();
+const reason = document.getElementById("reason").value.trim();
+
+if(!ip){
+alert("请输入IP");
+return;
+}
+
 await fetch("/api/blacklist",{
 method:"POST",
 headers:{ "Content-Type":"application/json" },
-body: JSON.stringify({
-ip:document.getElementById("ip").value,
-reason:document.getElementById("reason").value
-})
+body: JSON.stringify({ ip, reason })
 });
+
+alert("已加入黑名单");
 
 loadLogs();
 }
-
-loadLogs();
 
 </script>
 
