@@ -2,7 +2,7 @@
 <html lang="zh">
 <head>
 <meta charset="UTF-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover"/>
 
 <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🌍</text></svg>">
 <title>IP Intelligence</title>
@@ -12,9 +12,15 @@
 
 <style>
 
+/* 🌐 全局适配 */
+*{
+box-sizing:border-box;
+}
+
 body {
 margin: 0;
 height: 100vh;
+height: 100dvh; /* ✅ 修复手机浏览器地址栏问题 */
 overflow: hidden;
 font-family: system-ui;
 }
@@ -22,20 +28,20 @@ font-family: system-ui;
 /* 🌙 地图 */
 #map {
 position: absolute;
-top: 0;
-left: 0;
-right: 0;
-bottom: 0;
+inset: 0;
 filter: brightness(0.75) contrast(1.2) saturate(1.3);
 }
 
-/* 卡片 */
+/* 🧊 卡片（核心响应式优化） */
 .card {
 position: absolute;
 top: 50%;
 left: 50%;
 transform: translate(-50%, -50%);
-width: 420px;
+
+width: min(420px, 92vw);   /* ✅ 自动适配手机 */
+max-height: 85vh;
+overflow-y: auto;
 
 background: rgba(0,0,0,0.55);
 backdrop-filter: blur(18px);
@@ -43,49 +49,76 @@ backdrop-filter: blur(18px);
 border: 1px solid rgba(255,255,255,0.12);
 border-radius: 16px;
 
-padding: 20px;
+padding: 16px;
 color: white;
 box-shadow: 0 20px 60px rgba(0,0,0,0.6);
 }
 
+/* 标题 */
 .title {
-font-size: 18px;
+font-size: clamp(14px, 4vw, 18px); /* ✅ 自适应字体 */
 margin-bottom: 14px;
 color: #7dd3fc;
 text-align: center;
 }
 
+/* 行布局 */
 .row {
-margin: 10px 0;
-font-size: 14px;
+margin: 8px 0;
+font-size: clamp(12px, 3.5vw, 14px);
 display: flex;
 justify-content: space-between;
+gap: 10px;
+flex-wrap: wrap;
 }
 
-.label { opacity: 0.6; }
-
-/* 风险 */
+/* 风险颜色 */
 .low { color: #22c55e; }
 .medium { color: #f59e0b; }
 .high { color: #ef4444; }
 
-/* 按钮 */
+/* 按钮（手机优化） */
 button {
 width: 100%;
-margin-top: 12px;
+margin-top: 10px;
 padding: 10px;
+
 border: none;
 border-radius: 10px;
+
 background: #38bdf8;
 font-weight: bold;
 cursor: pointer;
+
+font-size: 14px;
+}
+
+button:active {
+transform: scale(0.98);
 }
 
 button:hover { background: #0ea5e9; }
 
+/* 🇨🇳 旗帜 */
 .flag {
-font-size: 20px;
+font-size: 18px;
 margin-right: 6px;
+}
+
+/* 📱 小屏优化 */
+@media (max-width: 480px){
+
+.card{
+padding: 14px;
+border-radius: 12px;
+}
+
+.row{
+flex-direction: column;
+align-items: flex-start;
+gap: 4px;
+}
+
 }
 
 </style>
@@ -99,13 +132,14 @@ margin-right: 6px;
 <div class="card">
 <div class="title">🌍 IP Intelligence / IP 信息分析</div>
 
-<div id="info" class="center">Loading...</div>
+<div id="info">Loading...</div>
 
 <button onclick="load()">Refresh / 刷新</button>
-  
+
 <button onclick="load(); setTimeout(()=>window.location.href='/admin.html',300)">
 Log in / 登录
 </button>
+
 </div>
 
 <script>
@@ -113,8 +147,8 @@ Log in / 登录
 let map = null;
 let marker = null;
 
-/* 🧭 国家旗帜 */
-function getFlag(c) {
+/* 🌍 国家旗帜 */
+function getFlag(c){
 const f = {
 US:"🇺🇸", CN:"🇨🇳", RU:"🇷🇺",
 JP:"🇯🇵", DE:"🇩🇪", GB:"🇬🇧",
@@ -123,21 +157,20 @@ FR:"🇫🇷"
 return f[c] || "🌐";
 }
 
-/* 🧠 风险标准化（关键优化） */
-function normalizeRisk(r) {
-if (!r) return "low";
-return r.toLowerCase();
+/* 🧠 风险 */
+function normalizeRisk(r){
+return (r || "low").toLowerCase();
 }
 
-/* 🌙 安全地图初始化 */
-function initMap(lat, lon) {
+/* 🗺 地图 */
+function initMap(lat, lon){
 
-if (!lat || !lon) {
-lat = 20;
-lon = 0;
-}
+lat = lat || 20;
+lon = lon || 0;
 
-map = L.map('map').setView([lat, lon], 3);
+map = L.map('map', {
+zoomControl: true
+}).setView([lat, lon], 2);
 
 L.tileLayer(
 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png',
@@ -148,66 +181,37 @@ marker = L.marker([lat, lon]).addTo(map);
 marker.bindPopup("📍 IP Location / 位置").openPopup();
 }
 
-/* 📡 主加载函数 */
-async function load() {
+/* 📡 load */
+async function load(){
 
-try {
+try{
 
 const res = await fetch("/api/ip");
 const d = await res.json();
 
 const risk = normalizeRisk(d.risk);
 
-/* UI（优化：减少 innerHTML 复杂度风险） */
 document.getElementById("info").innerHTML = `
-<div class="row">
-<span>🌐 IP</span>
-<span>${d.ip || "-"}</span>
-</div>
-
-<div class="row">
-<span>🏳️ Country / 国家</span>
-<span>${getFlag(d.country)} ${d.country || "-"}</span>
-</div>
-
-<div class="row">
-<span>🏙 City / 城市</span>
-<span>${d.city || "-"}</span>
-</div>
-
-<div class="row">
-<span>📍 Region / 地区</span>
-<span>${d.region || "-"}</span>
-</div>
-
-<div class="row">
-<span>🏢 Org / 运营商</span>
-<span>${d.org || "-"}</span>
-</div>
-
-<div class="row">
-<span>🧠 Risk / 风险</span>
-<span class="${risk}">
-${risk.toUpperCase()}
-</span>
-</div>
+<div class="row"><span>🌐 IP</span><span>${d.ip || "-"}</span></div>
+<div class="row"><span>🏳️ 国家</span><span>${getFlag(d.country)} ${d.country || "-"}</span></div>
+<div class="row"><span>🏙 城市</span><span>${d.city || "-"}</span></div>
+<div class="row"><span>📍 地区</span><span>${d.region || "-"}</span></div>
+<div class="row"><span>🏢 运营商</span><span>${d.org || "-"}</span></div>
+<div class="row"><span>🧠 风险</span><span class="${risk}">${risk.toUpperCase()}</span></div>
 `;
 
-/* 地图更新优化 */
 const lat = d.lat || 20;
 const lon = d.lon || 0;
 
-if (!map) {
+if(!map){
 initMap(lat, lon);
-} else {
+}else{
 map.setView([lat, lon], 5);
-if (marker) {
 marker.setLatLng([lat, lon]);
 marker.setPopupContent(`${d.city || ""}, ${d.country || ""}`);
 }
-}
 
-} catch (e) {
+}catch(e){
 document.getElementById("info").innerHTML =
 "<div style='color:red'>API ERROR</div>";
 console.error(e);
