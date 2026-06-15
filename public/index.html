@@ -2,9 +2,8 @@
 <html>
 <head>
 <meta charset="UTF-8">
-<title>CYBER COMMAND CENTER</title>
+<title>GLOBAL CYBER MONITOR V5</title>
 
-<!-- ✅ 正确 CDN（稳定版） -->
 <script src="https://unpkg.com/three@0.155.0/build/three.min.js"></script>
 <script src="https://unpkg.com/globe.gl"></script>
 
@@ -30,28 +29,32 @@ bottom:0;
 position:absolute;
 top:0;
 left:0;
-width:360px;
+width:380px;
 height:100vh;
-background:rgba(0,0,0,0.65);
-padding:16px;
-border-right:1px solid #00ffcc33;
+background:rgba(0,0,0,0.7);
+padding:14px;
 overflow:auto;
+border-right:1px solid #00ffcc33;
 }
 
 .title{
-font-size:18px;
+font-size:16px;
 margin-bottom:10px;
 }
 
 .log{
 font-size:11px;
-margin:6px 0;
+margin:5px 0;
 opacity:0.85;
 }
 
 .stat{
 margin:10px 0;
+}
+
+.glow{
 color:#00ffcc;
+text-shadow:0 0 8px #00ffcc;
 }
 
 </style>
@@ -64,7 +67,7 @@ color:#00ffcc;
 
 <div class="hud">
 
-<div class="title">🛰 CYBER COMMAND CENTER</div>
+<div class="title glow">🛰 GLOBAL CYBER MONITOR V5</div>
 
 <div id="stats" class="stat">INIT...</div>
 
@@ -74,30 +77,24 @@ color:#00ffcc;
 
 <script>
 
-let points = [];
-let globe;
-
-// ✅ 初始化 globe（防崩）
-function initGlobe(){
-
-globe = Globe()
+const globe = Globe()
 (document.getElementById('globe'))
 
 .globeImageUrl('https://unpkg.com/three-globe/example/img/earth-night.jpg')
 .bumpImageUrl('https://unpkg.com/three-globe/example/img/earth-topology.png')
 .backgroundImageUrl('https://unpkg.com/three-globe/example/img/night-sky.png')
-
 .pointOfView({ lat: 20, lng: 0, altitude: 2.5 });
 
-render();
-}
+let points = [];
+let seen = new Map();
 
-// ✅ 渲染优化（避免每次全重建）
+// 🌍 更新地球点
 function render(){
 
-globe.pointsData(points)
+globe
+.pointsData(points)
 .pointLat(d => d.lat)
-.pointLng(d => d.lng)
+.pointLng(d => d.lon)
 .pointColor(d => {
 
 if(d.count > 5) return "#ff3b3b";
@@ -105,129 +102,76 @@ if(d.count > 2) return "#ffaa00";
 return "#00ffcc";
 
 })
-.pointAltitude(0.02)
-.pointRadius(0.3);
+.pointRadius(d => 0.3 + d.count * 0.05)
+.pointAltitude(0.02);
 
 }
 
-// ✅ 合并点数据（优化 O(n²)）
+// 🧠 合并点（避免爆炸）
 function addPoint(d){
 
-const key = `${d.lat}_${d.lon}`;
+const key = d.country + d.city;
 
-let found = points.find(x => x.key === key);
-
-if(found){
-found.count++;
+if(seen.has(key)){
+seen.get(key).count++;
 }else{
-points.push({
-key,
-lat: d.lat,
-lon: d.lon,
-count: 1
+seen.set(key,{
+lat:d.lat,
+lon:d.lon,
+country:d.country,
+city:d.city,
+ip:d.ip,
+count:1
 });
 }
+
+points = Array.from(seen.values());
 
 render();
 }
 
+// 🧾 HUD日志
 function addLog(d){
 
-const log = document.createElement("div");
+const el = document.createElement("div");
+el.className="log";
+el.innerText = `${d.ip} | ${d.country} | ${d.city}`;
 
-log.className="log";
+document.getElementById("logs").prepend(el);
 
-log.innerText =
-`${d.ip} | ${d.country} | ${d.city}`;
-
-document.getElementById("logs").prepend(log);
-
-// 限制日志数量（性能优化）
-if(document.getElementById("logs").children.length > 50){
+// 限制
+if(document.getElementById("logs").children.length > 60){
 document.getElementById("logs").lastChild.remove();
 }
 
-document.getElementById("stats").innerHTML =
-`ACTIVE POINTS: ${points.length}`;
 }
 
-// ✅ SSE + fallback
-async function start(){
+// 📡 轮询系统（核心）
+async function poll(){
 
 try{
 
-const res = await fetch("/api/stream");
-
-if(!res.body) throw new Error("No stream");
-
-const reader = res.body.getReader();
-const decoder = new TextDecoder();
-
-let buffer = "";
-
-while(true){
-
-const {value, done} = await reader.read();
-if(done) break;
-
-buffer += decoder.decode(value);
-
-const parts = buffer.split("\n\n");
-
-buffer = parts.pop();
-
-for(const p of parts){
-
-if(p.includes("data:")){
-
-const json = p.replace("data:","").trim();
-
-const d = JSON.parse(json);
+const res = await fetch("/api/ip");
+const d = await res.json();
 
 if(d.lat && d.lon){
-
-addPoint({
-lat: d.lat,
-lon: d.lon
-});
-
+addPoint(d);
 }
 
 addLog(d);
 
-}
-
-}
-
-}
+document.getElementById("stats").innerHTML =
+`POINTS: ${points.length} | TIME: ${new Date().toLocaleTimeString()}`;
 
 }catch(e){
-
-// ❗ fallback（GitHub Pages可用）
-console.warn("SSE failed, fallback mode");
-
-// mock数据
-setInterval(()=>{
-
-const d = {
-ip: "demo.ip",
-country: "US",
-city: "Portland",
-lat: 45.52 + Math.random(),
-lon: -122.68 + Math.random()
-};
-
-addPoint(d);
-addLog(d);
-
-}, 2000);
-
+console.log("poll error",e);
 }
 
 }
 
-initGlobe();
-start();
+// 🚀 启动
+setInterval(poll, 2000);
+poll();
 
 </script>
 
