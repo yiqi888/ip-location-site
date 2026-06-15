@@ -1,8 +1,8 @@
 <!DOCTYPE html>
-<html lang="zh">
+<html>
 <head>
 <meta charset="UTF-8">
-<title>IP 情报中心</title>
+<title>GLOBAL IP MONITOR</title>
 
 <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css"/>
 
@@ -10,35 +10,54 @@
 
 body{
 margin:0;
-font-family:system-ui;
-background:#0b1220;
-color:white;
-}
-
-.container{
-display:grid;
-grid-template-columns:1fr 1fr;
-height:100vh;
-}
-
-.panel{
-padding:20px;
-background:rgba(255,255,255,0.05);
-backdrop-filter:blur(15px);
+background:black;
+color:#00ff9f;
+font-family:monospace;
+overflow:hidden;
 }
 
 #map{
 height:100vh;
+filter:contrast(1.2) brightness(0.8);
 }
 
-.card{
-padding:15px;
-margin:10px 0;
-border-radius:12px;
-background:rgba(255,255,255,0.06);
+.hud{
+position:absolute;
+top:0;
+left:0;
+width:400px;
+height:100vh;
+background:rgba(0,0,0,0.7);
+padding:20px;
+overflow:auto;
+border-right:1px solid #00ff9f33;
 }
 
-.value{ color:#4cc9f0; }
+.log{
+font-size:12px;
+margin:5px 0;
+opacity:0.9;
+}
+
+.title{
+color:#00ff9f;
+font-size:18px;
+margin-bottom:10px;
+}
+
+.scanline{
+position:fixed;
+width:100%;
+height:2px;
+background:#00ff9f;
+opacity:0.1;
+animation:scan 4s linear infinite;
+}
+
+@keyframes scan{
+0%{top:0}
+100%{top:100%}
+}
 
 </style>
 
@@ -46,68 +65,68 @@ background:rgba(255,255,255,0.06);
 
 <body>
 
-<div class="container">
+<div class="scanline"></div>
 
-<div class="panel">
+<div class="hud">
 
-<h2>🌐 IP 情报中心</h2>
+<div class="title">🛰 GLOBAL ACCESS MONITOR</div>
 
-<div id="info" class="card">加载中...</div>
+<div id="count">ONLINE: 0</div>
 
-<div id="stats" class="card"></div>
+<div id="log"></div>
 
 </div>
 
 <div id="map"></div>
 
-</div>
-
 <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
 
 <script>
 
-let map = L.map('map').setView([20,0], 2);
+const map = L.map('map').setView([20,0], 2);
 
-L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-attribution: 'OSM'
+L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{
+attribution:''
 }).addTo(map);
 
-async function load(){
+let count = 0;
 
-const r = await fetch("/api/ip");
-const d = await r.json();
+function addPulse(lat, lon){
 
-document.getElementById("info").innerHTML = `
-<b>IP:</b> <span class="value">${d.ip}</span><br>
-<b>国家:</b> ${d.country}<br>
-<b>城市:</b> ${d.city}<br>
-<b>地区:</b> ${d.region}<br>
-<b>ASN:</b> ${d.asn || "未知"}
-`;
+const circle = L.circle([lat,lon],{
+radius:50000,
+color:"#00ff9f",
+fillOpacity:0.3
+}).addTo(map);
 
-// 地图定位
+setTimeout(()=>map.removeLayer(circle),3000);
+
+}
+
+const evt = new EventSource("/api/stream");
+
+evt.onmessage = (e)=>{
+
+const d = JSON.parse(e.data);
+
+count++;
+document.getElementById("count").innerText =
+"ONLINE: " + count;
+
+const log =
+`[${d.time}] ${d.ip} | ${d.country} | ${d.city}`;
+
+const div = document.createElement("div");
+div.className="log";
+div.innerText=log;
+
+document.getElementById("log").prepend(div);
+
 if(d.lat && d.lon){
-map.setView([d.lat, d.lon], 10);
-
-L.marker([d.lat, d.lon])
-.addTo(map)
-.bindPopup("📍 你的位置")
-.openPopup();
+addPulse(d.lat, d.lon);
 }
 
-// 统计
-const s = await fetch("/api/stats");
-const st = await s.json();
-
-document.getElementById("stats").innerHTML = `
-<b>📊 访问统计</b><br>
-总访问：${st.total}<br>
-今日访问：${st.today}
-`;
-
-}
-
-load();
+};
 
 </script>
 
