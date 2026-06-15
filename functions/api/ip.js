@@ -1,35 +1,40 @@
 export async function onRequest(context) {
+  const { request, env } = context;
+  const cf = request.cf || {};
 
-const req = context.request;
-const cf = req.cf;
+  const ip = request.headers.get("CF-Connecting-IP") || "unknown";
 
-// IP信息
-const data = {
-  ip: req.headers.get("CF-Connecting-IP"),
-  country: cf?.country || "未知",
-  city: cf?.city || "未知",
-  region: cf?.region || "未知",
-  lat: cf?.latitude || null,
-  lon: cf?.longitude || null,
-  ua: req.headers.get("User-Agent")
-};
+  const data = {
+    ip,
+    country: cf.country || "unknown",
+    city: cf.city || "unknown",
+    region: cf.region || "unknown",
+    lat: cf.latitude ?? 0,
+    lon: cf.longitude ?? 0,
+    asn: cf.asOrganization || "unknown",
+    ua: request.headers.get("User-Agent") || "",
+    time: new Date().toISOString()
+  };
 
-// 写入 D1（如果绑定了）
-if (context.env.DB) {
-  await context.env.DB.prepare(
-    `INSERT INTO visits (ip, country, city, region, lat, lon, ua)
-     VALUES (?, ?, ?, ?, ?, ?, ?)`
-  ).bind(
-    data.ip,
-    data.country,
-    data.city,
-    data.region,
-    data.lat,
-    data.lon,
-    data.ua
-  ).run();
-}
+  // ✅ 写入 D1（失败不影响主流程）
+  try {
+    await env.DB.prepare(
+      `INSERT INTO visits (ip, country, city, region, lat, lon, ua)
+       VALUES (?, ?, ?, ?, ?, ?, ?)`
+    )
+    .bind(
+      data.ip,
+      data.country,
+      data.city,
+      data.region,
+      data.lat,
+      data.lon,
+      data.ua
+    )
+    .run();
+  } catch (e) {
+    console.log("DB write failed:", e);
+  }
 
-return Response.json(data);
-
+  return Response.json(data);
 }
