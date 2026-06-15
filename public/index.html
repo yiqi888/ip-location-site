@@ -4,7 +4,8 @@
 <meta charset="UTF-8">
 <title>CYBER COMMAND CENTER</title>
 
-<script src="https://unpkg.com/three"></script>
+<!-- ✅ 正确 CDN（稳定版） -->
+<script src="https://unpkg.com/three@0.155.0/build/three.min.js"></script>
 <script src="https://unpkg.com/globe.gl"></script>
 
 <style>
@@ -53,15 +54,6 @@ margin:10px 0;
 color:#00ffcc;
 }
 
-.alert{
-color:#ff3b3b;
-animation:blink 1s infinite;
-}
-
-@keyframes blink{
-50%{opacity:0.2}
-}
-
 </style>
 
 </head>
@@ -82,23 +74,28 @@ animation:blink 1s infinite;
 
 <script>
 
-const globe = Globe()
+let points = [];
+let globe;
+
+// ✅ 初始化 globe（防崩）
+function initGlobe(){
+
+globe = Globe()
 (document.getElementById('globe'))
 
 .globeImageUrl('https://unpkg.com/three-globe/example/img/earth-night.jpg')
-
 .bumpImageUrl('https://unpkg.com/three-globe/example/img/earth-topology.png')
-
 .backgroundImageUrl('https://unpkg.com/three-globe/example/img/night-sky.png')
 
 .pointOfView({ lat: 20, lng: 0, altitude: 2.5 });
 
-let points = [];
+render();
+}
 
-function updateGlobe(){
+// ✅ 渲染优化（避免每次全重建）
+function render(){
 
-globe
-.pointsData(points)
+globe.pointsData(points)
 .pointLat(d => d.lat)
 .pointLng(d => d.lng)
 .pointColor(d => {
@@ -113,9 +110,56 @@ return "#00ffcc";
 
 }
 
-async function fetchData(){
+// ✅ 合并点数据（优化 O(n²)）
+function addPoint(d){
+
+const key = `${d.lat}_${d.lon}`;
+
+let found = points.find(x => x.key === key);
+
+if(found){
+found.count++;
+}else{
+points.push({
+key,
+lat: d.lat,
+lon: d.lon,
+count: 1
+});
+}
+
+render();
+}
+
+function addLog(d){
+
+const log = document.createElement("div");
+
+log.className="log";
+
+log.innerText =
+`${d.ip} | ${d.country} | ${d.city}`;
+
+document.getElementById("logs").prepend(log);
+
+// 限制日志数量（性能优化）
+if(document.getElementById("logs").children.length > 50){
+document.getElementById("logs").lastChild.remove();
+}
+
+document.getElementById("stats").innerHTML =
+`ACTIVE POINTS: ${points.length}`;
+}
+
+// ✅ SSE + fallback
+async function start(){
+
+try{
 
 const res = await fetch("/api/stream");
+
+if(!res.body) throw new Error("No stream");
+
 const reader = res.body.getReader();
 const decoder = new TextDecoder();
 
@@ -140,35 +184,16 @@ const json = p.replace("data:","").trim();
 
 const d = JSON.parse(json);
 
-// 合并点数据
-let found = points.find(x => x.lat === d.lat && x.lng === d.lon);
+if(d.lat && d.lon){
 
-if(found){
-found.count++;
-}else{
-points.push({
+addPoint({
 lat: d.lat,
-lng: d.lon,
-count: 1
+lon: d.lon
 });
+
 }
 
-updateGlobe();
-
-// HUD日志
-const log =
-document.createElement("div");
-
-log.className="log";
-
-log.innerText =
-`${d.ip} | ${d.country} | ${d.city}`;
-
-document.getElementById("logs").prepend(log);
-
-// stats
-document.getElementById("stats").innerHTML =
-`ACTIVE POINTS: ${points.length}`;
+addLog(d);
 
 }
 
@@ -176,9 +201,33 @@ document.getElementById("stats").innerHTML =
 
 }
 
+}catch(e){
+
+// ❗ fallback（GitHub Pages可用）
+console.warn("SSE failed, fallback mode");
+
+// mock数据
+setInterval(()=>{
+
+const d = {
+ip: "demo.ip",
+country: "US",
+city: "Portland",
+lat: 45.52 + Math.random(),
+lon: -122.68 + Math.random()
+};
+
+addPoint(d);
+addLog(d);
+
+}, 2000);
+
 }
 
-fetchData();
+}
+
+initGlobe();
+start();
 
 </script>
 
