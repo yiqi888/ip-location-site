@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<title>Admin Panel</title>
+
+<style>
+body{
+margin:0;
+font-family:system-ui;
+background:#0b1220;
+color:white;
+display:flex;
+}
+
+.panel{
+width:320px;
+padding:16px;
+border-right:1px solid #222;
+}
+
+.main{
+flex:1;
+padding:16px;
+overflow:auto;
+}
+
+.item{
+padding:8px;
+border-bottom:1px solid #222;
+font-size:13px;
+}
+
+.bad{ color:#ef4444; }
+.mid{ color:#f59e0b; }
+.low{ color:#22c55e; }
+.blocked{ color:red; font-weight:bold; }
+
+button{
+margin-top:10px;
+width:100%;
+padding:8px;
+}
+
+</style>
+
+</head>
+
+<body>
+
+<div class="panel">
+<h3>🚨 IP 黑名单</h3>
+<input id="ip" placeholder="IP"/>
+<input id="reason" placeholder="原因"/>
+<button onclick="block()">添加</button>
+</div>
+
+<div class="main">
+<h3>📊 访问日志</h3>
+<div id="logs">loading...</div>
+</div>
+
+<script>
+
+async function loadLogs(){
+const res = await fetch("/api/logs");
+const data = await res.json();
+
+document.getElementById("logs").innerHTML =
+data.map(d => `
+<div class="item ${d.risk}">
+${d.ip} | ${d.country} | ${d.city}
+<span class="${d.risk}">[${d.risk}]</span>
+</div>
+`).join("");
+}
+
+async function block(){
+await fetch("/api/blacklist",{
+method:"POST",
+headers:{ "Content-Type":"application/json" },
+body: JSON.stringify({
+ip:document.getElementById("ip").value,
+reason:document.getElementById("reason").value
+})
+});
+
+loadLogs();
+}
+
+loadLogs();
+
+</script>
+
+</body>
+</html>
