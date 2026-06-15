@@ -103,7 +103,9 @@ margin-right: 6px;
 
 <button onclick="load()">Refresh / 刷新</button>
   
-<button onclick="load()">Log in / 登录</button>
+<button onclick="load(); setTimeout(()=>window.location.href='/admin.html',300)">
+Log in / 登录
+</button>
 </div>
 
 <script>
